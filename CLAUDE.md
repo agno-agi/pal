@@ -4,31 +4,36 @@ This file provides context for Claude Code when working with this repository.
 
 ## Project Overview
 
-Pal - A personal agent that learns your preferences, context, and history. Built with Agno.
+Pal - A personal context-agent that learns how you work. Built with Agno.
 
 ## Architecture
 
 ```
 AgentOS (app/main.py)
-└── Pal (pal/agent.py)  # Personal agent with SQL + Exa MCP + LearningMachine
+├── Pal (pal/agent.py)  # Context agent with 5 toolkits + dynamic instructions
+└── Slack (optional)     # Slack bot interface
 ```
 
 Pal uses:
 - PostgreSQL database (pgvector) for persistence
 - OpenAI GPT-5.2 model
-- SQLTools for dynamic schema creation and queries
-- Exa MCP for web research
-- Dual knowledge system: `pal_knowledge` (RAG) + `pal_learnings` (LearningMachine)
+- 5 toolkits (conditional): SQLTools, FileTools, MCPTools (Exa), GmailTools, GoogleCalendarTools
+- Custom `update_knowledge` tool (`pal/tools.py`)
+- Dual knowledge system: `pal_knowledge` (metadata index) + `pal_learnings` (LearningMachine)
+- Dynamic instructions: base + conditional blocks based on configured capabilities
 
 ## Key Files
 
 | File | Purpose |
 |------|---------|
-| `app/main.py` | AgentOS entry point, registers Pal agent |
+| `app/main.py` | AgentOS entry point, registers Pal agent + optional Slack interface |
 | `app/config.yaml` | Quick prompts for Pal |
-| `pal/agent.py` | Pal agent implementation |
+| `pal/agent.py` | Pal agent — dynamic instructions, conditional tools, config |
+| `pal/tools.py` | Custom `update_knowledge` tool (closure pattern) |
+| `pal/paths.py` | Shared path constants (`CONTEXT_DIR`, `VOICE_DIR`) |
 | `db/session.py` | `get_postgres_db()` and `create_knowledge()` helpers |
 | `db/url.py` | Builds database URL from environment |
+| `scripts/load_context.py` | Upserts context files into `pal_knowledge` |
 | `compose.yaml` | Local development with Docker |
 
 ## Development Setup
@@ -55,20 +60,28 @@ source .venv/bin/activate && ./scripts/validate.sh
 
 ### Agent Pattern
 
-Pal follows the self-named package pattern (`pal/agent.py`):
+Pal follows the self-named package pattern (`pal/agent.py`) with dynamic instructions and conditional tools:
 
 ```python
-from agno.agent import Agent
-from agno.learn import LearnedKnowledgeConfig, LearningMachine, LearningMode
-from agno.models.openai import OpenAIResponses
-from agno.tools.mcp import MCPTools
-from agno.tools.sql import SQLTools
-from db import create_knowledge, db_url, get_postgres_db
+# Instructions built dynamically
+instructions = BASE_INSTRUCTIONS
+if EXA_API_KEY:
+    instructions += EXA_INSTRUCTIONS
+if GOOGLE_CLIENT_ID:
+    instructions += GMAIL_INSTRUCTIONS
+    instructions += CALENDAR_INSTRUCTIONS
 
-agent_db = get_postgres_db(contents_table="pal_contents")
-
-pal_knowledge = create_knowledge("Pal Knowledge", "pal_knowledge")
-pal_learnings = create_knowledge("Pal Learnings", "pal_learnings")
+# Tools built conditionally
+tools: list = [
+    SQLTools(db_url=db_url),
+    FileTools(base_dir=PAL_CONTEXT_DIR, enable_delete_file=False),
+    update_knowledge,  # Custom tool from pal/tools.py
+]
+if EXA_API_KEY:
+    tools.append(MCPTools(url=EXA_MCP_URL))
+if GOOGLE_CLIENT_ID:
+    tools.append(GmailTools(exclude_tools=["send_email", "send_email_reply"]))
+    tools.append(GoogleCalendarTools(allow_update=True))
 
 pal = Agent(
     id="pal",
@@ -82,16 +95,9 @@ pal = Agent(
         knowledge=pal_learnings,
         learned_knowledge=LearnedKnowledgeConfig(mode=LearningMode.AGENTIC),
     ),
-    tools=[
-        SQLTools(db_url=db_url),
-        MCPTools(url=EXA_MCP_URL),
-    ],
+    tools=tools,
     enable_agentic_memory=True,
-    add_datetime_to_context=True,
-    add_history_to_context=True,
-    read_chat_history=True,
-    num_history_runs=10,
-    markdown=True,
+    ...
 )
 ```
 
@@ -135,6 +141,9 @@ docker compose up -d --build
 # Test Pal agent directly
 python -m pal.agent
 
+# Load context templates and files into knowledge
+python scripts/load_context.py
+
 # Format & validation (run from activated venv)
 ./scripts/format.sh
 ./scripts/validate.sh
@@ -144,9 +153,12 @@ python -m pal.agent
 
 Required:
 - `OPENAI_API_KEY`
-- `EXA_API_KEY` - Exa MCP for web search
 
-Optional:
+Optional (capabilities added when configured):
+- `EXA_API_KEY` - Exa MCP for web search
+- `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `GOOGLE_PROJECT_ID` - Gmail + Calendar (OAuth 2.0)
+- `SLACK_TOKEN`, `SLACK_SIGNING_SECRET` - Slack bot interface
+- `PAL_CONTEXT_DIR` - Base directory for FileTools (default: `./context`)
 - `DB_DRIVER` - Database driver (default: `postgresql+psycopg`)
 - `PORT` - API server port (default: `8000`)
 - `DB_HOST`, `DB_PORT`, `DB_USER`, `DB_PASS`, `DB_DATABASE`
@@ -161,10 +173,11 @@ Optional:
 
 | Data | Storage | Table/Location |
 |------|---------|----------------|
-| Pal knowledge (RAG) | PostgreSQL (vector embeddings) | `pal_knowledge` |
+| Pal knowledge (metadata index) | PostgreSQL (vector embeddings) | `pal_knowledge` |
 | Pal learnings (LearningMachine) | PostgreSQL (vector embeddings) | `pal_learnings` |
 | Pal contents | PostgreSQL | `pal_contents` |
 | User data (notes, people, etc.) | PostgreSQL (SQL) | `pal_*` tables (dynamic) |
+| User files & documents | Local filesystem | `PAL_CONTEXT_DIR` (default `./context`) |
 | Sessions/memory | PostgreSQL | Automatic |
 
 ---
