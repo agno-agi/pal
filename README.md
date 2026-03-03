@@ -1,88 +1,129 @@
-# Pal - A personal context-agent that learns how you work
+# Pal
 
-Pal is a single-agent context system built with [Agno](https://docs.agno.com). It
-navigates a heterogeneous graph of sources - SQL, local context files, Gmail,
-Google Calendar, and web search to complete tasks and improve retrieval quality
-over time.
+A personal context-agent that learns how you work.
+
+Pal navigates a heterogeneous graph of sources — SQL, local files, Gmail, Google Calendar, and web search — to complete tasks and improve retrieval quality over time. Built with [Agno](https://docs.agno.com).
 
 ## How It Works
 
-Pal is designed as a context agent, not a static memory dump. It follows:
+Every interaction follows the same loop:
 
 1. **Classify** intent from the user request.
-2. **Recall** from knowledge, learnings, and files with intent scope.
+2. **Recall** from knowledge, learnings, and files — scoped to intent.
 3. **Retrieve** from the right sources.
 4. **Act** through tool calls.
 5. **Learn** so the next request is better.
 
-It uses per-source summarization before synthesis, which scales as context grows.
-
-## Context Graph
-
-| Source | Purpose | Always available |
-|--------|---------|-----------------|
-| SQL (`pal_*`) | Structured notes, people, projects, etc. | Yes |
-| Files (`context/`) | Persistent context: voice, templates, briefs, notes | Yes |
-| Gmail | Thread search, reading, draft creation | Requires Google credentials |
-| Calendar | Event lookup/create/update | Requires Google credentials |
-| Exa | Web research | Requires `EXA_API_KEY` |
-
-## Recursive Context Navigation
-
-When a query touches many rows, files, emails, or events:
-
-- Summarize SQL results per source before mixing
-- Summarize thread segments and long files in chunks
-- Synthesize across per-source summaries instead of dumping everything into one
-  response
-
-This is the major quality lever in Pal's execution model.
-
-## Files and Context Directory
-
-Pal's files are the **primary context territory**.
-
-- Location: `PAL_CONTEXT_DIR` (default `./context`)
-- Search and read files on demand from this directory
-- Write summaries/exports back to files
-- File deletion is disabled for safety
-
-The shipped voice templates in `context/voice/` are read as guidance:
-
-- `x-post.md`
-- `linkedin-post.md`
-- `email.md`
-
-Because files are not centrally embedded, edits are immediately reflected without
-reindexing.
+Pal uses per-source summarization before synthesis, which means broad queries ("What do I know about Project X?") scale as context grows — each source is summarized independently, then synthesized into a final answer.
 
 ## Quick Start
 
 ```sh
+# Clone the repo
+git clone https://github.com/agno-agi/pal
+cd pal
+
+# Add OPENAI_API_KEY
 cp example.env .env
-# Add OPENAI_API_KEY and optional capability keys
+# Edit .env and add your key
+
+# Start the application
 docker compose up -d --build
+
+# Load context file metadata into the knowledge map
+docker compose exec pal-api python context/load_context.py
 ```
 
-Open `http://localhost:8000/docs` and add the endpoint to the AgentOS UI at
-[os.agno.com](https://os.agno.com).
+Confirm Pal is running at [http://localhost:8000/docs](http://localhost:8000/docs).
 
-## Context Loading
+### Connect to the Web UI
 
-If your repo includes `scripts/load_context.py`, preload files and manifests:
+1. Open [os.agno.com](https://os.agno.com) and login
+2. Add OS → Local → `http://localhost:8000`
+3. Click "Connect"
+
+## Context Directory
+
+The context directory (`PAL_CONTEXT_DIR`, default `./context`) is Pal's primary document store. Files are searched and read on demand — not centrally embedded — so edits are immediately reflected without reindexing.
+
+**User → Pal**: Place voice guidelines, preferences, templates, and references here. Pal reads them to shape its behavior.
+
+**Pal → User**: Pal writes summaries, exports, and generated documents back here.
+
+```
+context/
+├── voice/                  # Writing tone guides per channel
+│   ├── email.md
+│   ├── linkedin-post.md
+│   ├── x-post.md
+│   ├── slack-message.md
+│   └── document.md
+├── preferences/            # User working-style config
+│   └── general.md
+├── templates/              # Document scaffolds Pal fills per use
+│   ├── meeting-notes.md
+│   ├── weekly-review.md
+│   └── project-brief.md
+└── references/             # Static context about the user
+    └── about-me.md
+```
+
+File deletion is disabled at the code level.
+
+### Context Loading
+
+Preload file metadata into the knowledge map for retrieval routing:
 
 ```sh
-python scripts/load_context.py
-python scripts/load_context.py --recreate  # drop and reload
+python context/load_context.py
+python context/load_context.py --recreate   # clear knowledge index and reload
+python context/load_context.py --dry-run    # preview without writing
 ```
+
+This writes compact `File:` metadata entries (intent tags, size, path) into `pal_knowledge`. File contents are still read on demand by FileTools.
+
+## Architecture
+
+```
+AgentOS (app/main.py)  [scheduler=True, tracing=True]
+ ├── FastAPI / Uvicorn
+ └── Pal Agent (pal/agent.py)
+     ├─ Model: GPT-5.2
+     ├─ SQLTools         → PostgreSQL (pal_* tables)
+     ├─ FileTools        → context/
+     ├─ MCPTools         → Exa web search
+     ├─ update_knowledge → custom tool (pal/tools.py)
+     ├─ GmailTools       → Gmail (requires Google credentials)
+     └─ CalendarTools    → Google Calendar (requires Google credentials)
+
+     Knowledge:  pal_knowledge  (metadata map — where things are)
+     Learnings:  pal_learnings  (retrieval patterns — how to navigate)
+```
+
+### Sources
+
+| Source | Purpose | Availability |
+|--------|---------|--------------|
+| SQL (`pal_*`) | Structured notes, people, projects, decisions | Always |
+| Files (`context/`) | Voice guides, templates, preferences, references, exports | Always |
+| Exa | Web research | Always (API key optional for auth) |
+| Gmail | Thread search, reading, draft creation | Requires all 3 Google credentials |
+| Calendar | Event lookup, creation, updates | Requires all 3 Google credentials |
+
+### Storage
+
+| Layer | What goes there |
+|-------|----------------|
+| PostgreSQL | `pal_*` user tables, `pal_knowledge` + `pal_knowledge_contents`, `pal_learnings` + `pal_learnings_contents`, `pal_contents` |
+| `context/` | Voice guides, preferences, templates, references, generated exports |
 
 ## Capabilities
 
-Pal starts with SQL + Files and enables more as env vars are added.
+Pal starts with SQL + Files + Exa and enables more as environment variables are added. When a capability isn't configured, Pal returns a specific fallback message telling the user which env vars to add — no unsupported tool calls are attempted.
 
 ### Exa Web Research
 
-Add:
+Available by default. Optionally add an API key for authenticated access:
 
 ```env
 EXA_API_KEY=your-exa-key
@@ -90,7 +131,7 @@ EXA_API_KEY=your-exa-key
 
 ### Gmail + Google Calendar
 
-Add:
+All three variables are required to enable Google integration:
 
 ```env
 GOOGLE_CLIENT_ID=your-google-client-id
@@ -98,20 +139,20 @@ GOOGLE_CLIENT_SECRET=your-google-client-secret
 GOOGLE_PROJECT_ID=your-google-project-id
 ```
 
-### Slack Interface (AgentOS)
+Gmail is configured as draft-only — send tools are excluded at the code level. Calendar events with external attendees require user confirmation before creation.
 
-Add:
+### Slack Interface
+
+Slack is an AgentOS-level interface, not a toolkit on the agent. It's configured in `app/main.py` and thread timestamps map to session IDs for separate conversation contexts.
 
 ```env
 SLACK_TOKEN=xoxb-your-bot-token
 SLACK_SIGNING_SECRET=your-signing-secret
 ```
 
-Threads map to Slack thread IDs for separate contexts.
+## Example Prompts
 
-## Quick Prompts
-
-```text
+```
 Save a note: Met with Sarah Chen from Acme Corp. She's interested in a partnership.
 What do I know about Sarah?
 Check my latest emails
@@ -122,71 +163,35 @@ What do I know about Project X?
 Research web trends on AI productivity
 ```
 
-## Dynamic Tool Registration (code-level)
-
-```python
-from agno.tools.file import FileTools
-from agno.tools.mcp import MCPTools
-from agno.tools.sql import SQLTools
-from pal.tools import create_update_knowledge
-
-tools = [
-    SQLTools(db_url=db_url),
-    FileTools(base_dir=PAL_CONTEXT_DIR, enable_delete_file=False),
-    create_update_knowledge(pal_knowledge),
-]
-
-if EXA_API_KEY:
-    tools.append(MCPTools(url=EXA_MCP_URL))
-
-if GOOGLE_CLIENT_ID:
-    tools.append(GmailTools(exclude_tools=["send_email", "send_email_reply"]))
-    tools.append(GoogleCalendarTools(allow_update=True))
-```
-
-## Data Storage
-
-| Storage | What goes there |
-|---|---|
-| PostgreSQL | `pal_*` tables, `pal_contents`, `pal_knowledge`, `pal_learnings` |
-| `context/` | Files for voice, preferences, briefs, exports |
-
-## Troubleshooting
-
-### I can't access X
-
-- **Web search**: add `EXA_API_KEY` and restart.
-- **Gmail**: add `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `GOOGLE_PROJECT_ID` and restart.
-- **Calendar**: add `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `GOOGLE_PROJECT_ID` and restart.
-
-### Common checks
-
-- `docker compose config` should show optional vars with fallback defaults.
-- `PAL_CONTEXT_DIR` should be mounted to `./context`.
-- If context prompts stop making sense, rerun `python scripts/load_context.py`.
-
 ## Environment Variables
 
 | Variable | Required | Default | Purpose |
-|---|---|---|---|
-| `OPENAI_API_KEY` | Yes | - | OpenAI API key for GPT-5.2 |
-| `EXA_API_KEY` | No | `""` | Exa web search |
-| `GOOGLE_CLIENT_ID` | No | `""` | Gmail + Calendar |
-| `GOOGLE_CLIENT_SECRET` | No | `""` | Gmail + Calendar |
-| `GOOGLE_PROJECT_ID` | No | `""` | Gmail + Calendar |
-| `PAL_CONTEXT_DIR` | No | `./context` | Context directory for FileTools |
-| `SLACK_TOKEN` | No | `""` | Optional Slack interface |
-| `SLACK_SIGNING_SECRET` | No | `""` | Optional Slack interface |
+|----------|----------|---------|---------|
+| `OPENAI_API_KEY` | Yes | — | GPT-5.2 |
+| `EXA_API_KEY` | No | `""` | Exa web search auth (tool loads regardless) |
+| `GOOGLE_CLIENT_ID` | No | `""` | Gmail + Calendar OAuth (all 3 required) |
+| `GOOGLE_CLIENT_SECRET` | No | `""` | Gmail + Calendar OAuth (all 3 required) |
+| `GOOGLE_PROJECT_ID` | No | `""` | Gmail + Calendar OAuth (all 3 required) |
+| `PAL_CONTEXT_DIR` | No | `./context` | Context directory path |
+| `SLACK_TOKEN` | No | `""` | Slack bot token |
+| `SLACK_SIGNING_SECRET` | No | `""` | Slack signing secret |
+| `DB_HOST` | No | `localhost` | PostgreSQL host |
+| `DB_PORT` | No | `5432` | PostgreSQL port |
+| `DB_USER` | No | `ai` | PostgreSQL user |
+| `DB_PASS` | No | `ai` | PostgreSQL password |
+| `DB_DATABASE` | No | `ai` | PostgreSQL database |
 | `PORT` | No | `8000` | API port |
-| `DB_HOST` | No | `localhost` | DB host |
-| `DB_PORT` | No | `5432` | DB port |
-| `DB_USER` | No | `ai` | DB user |
-| `DB_PASS` | No | `ai` | DB password |
-| `DB_DATABASE` | No | `ai` | DB name |
-| `RUNTIME_ENV` | No | `prd` | Use `dev` for reload |
+| `RUNTIME_ENV` | No | `prd` | `dev` enables hot reload |
+
+## Troubleshooting
+
+**Context prompts stop making sense**: Rerun `python context/load_context.py` to refresh the knowledge map.
+
+**Docker config issues**: Run `docker compose config` and verify optional vars have fallback defaults.
+
+**PAL_CONTEXT_DIR not found**: Ensure the directory is mounted to `./context` in your compose file.
 
 ## Links
 
 - [Agno Docs](https://docs.agno.com)
 - [AgentOS Docs](https://docs.agno.com/agent-os/introduction)
-- [Recursive Language Models](https://arxiv.org/abs/2512.24601)

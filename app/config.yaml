@@ -3,8 +3,4 @@ chat:
     pal:
       - "Save a note: Met with Sarah Chen from Acme Corp"
       - "What do I know about Sarah?"
-      - "Check my latest emails"
-      - "What's on my calendar this week?"
-      - "Save a summary of today's meeting to meeting-notes.md"
-      - "What do I know about Project X? Check everything."
       - "Draft an X post about this product launch in my voice"

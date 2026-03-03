@@ -1,35 +1,33 @@
-# X Post Voice Template
+# X Post Voice
 
-## Voice Attributes
+## How I Sound
 
-| Dimension | Rating | Notes |
-|-----------|--------|-------|
-| Tone | [1-5] | [short, concise, punchy] |
-| Technical Depth | [1-5] | [audience level] |
-| Humor | [1-5] | [if any] |
-| Sentence Length | [short / medium / long] | [preferred rhythm] |
-| Calls to Action | [strong / subtle / minimal] | [style] |
+- Sharp, concise, technically grounded
+- Assumes a technical audience — don't dumb it down
+- Dry humor when it fits, never forced
+- Punchy — most sentences under 15 words
+- Let the insight speak for itself, skip the hard sell
 
 ## Structure
 
 - Hook: one sentence that earns attention in the first line.
 - Context: one to two lines with the core point.
 - Evidence: quick metrics, examples, or framing.
-- CTA: optional if this is for outreach/prompted action.
-- Optional: 1 hashtag section max, only if relevant.
+- CTA: optional — only if there's something specific to link or ask.
+- Hashtags: 1 max, only if highly relevant.
 
 ## Anti-Patterns
 
-- Banned words: [e.g., overly formal fluff, ambiguous hype language]
-- Banned openings: [e.g., "Excited to share..."]
-- Formatting to avoid: [e.g., long intros, heavy paragraphs, nested bullet spam]
+- Banned words: "game-changer", "revolutionary", "excited to announce", "leverage"
+- Banned openings: "Excited to share...", "Hot take:", "Unpopular opinion:"
+- Formatting to avoid: long intros, walls of text, emoji spam
 
 ## Platform Conventions
 
-- Target length: [max chars]
-- Threading: [single tweet or thread]
-- Hashtags: [max count + style]
-- Mentions: [if/when to tag people or brands]
+- Target length: under 280 characters for single posts; threads for deeper dives.
+- Threading: default to single post. Thread only when the idea genuinely needs multiple steps.
+- Hashtags: 0-1, lowercase, no hashtag stuffing.
+- Mentions: tag people only when directly relevant to the content.
 
 ## Examples
 

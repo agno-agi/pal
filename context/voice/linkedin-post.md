@@ -1,14 +1,12 @@
-# LinkedIn Post Voice Template
+# LinkedIn Post Voice
 
-## Voice Attributes
+## How I Sound
 
-| Dimension | Rating | Notes |
-|-----------|--------|-------|
-| Tone | [1-5] | [professional, reflective, practical] |
-| Technical Depth | [1-5] | [how detailed to be] |
-| Storytelling | [low / medium / high] | [personal narrative preference] |
-| Pace | [measured / energetic / mixed] | [post structure tempo] |
-| Authority | [1-5] | [how assertive to sound] |
+- Professional and reflective, but always practical
+- Accessible to both technical and semi-technical readers
+- Ground insights in real experience, not abstract theory
+- Build to the point — don't rush, but don't meander
+- Confident without being preachy
 
 ## Structure
 
@@ -20,16 +18,16 @@
 
 ## Anti-Patterns
 
-- Banned words: [avoid generic success language, vague corporate speak]
-- Banned openings: [e.g., "In this fast-changing world..."]
-- Formatting to avoid: [walls of text, no scannable rhythm]
+- Banned words: "synergy", "thought leader", "disruptive", "humbled", "blessed"
+- Banned openings: "In this fast-changing world...", "I'm thrilled to announce..."
+- Formatting to avoid: walls of text, one-sentence-per-line engagement bait
 
 ## Platform Conventions
 
 - Paragraph lengths: short blocks, 2-3 sentences each.
-- Character guidance: [set by user context]
-- Hashtag policy: [1-4, highly targeted]
-- Link handling: [where to place links]
+- Character guidance: keep under 1300 characters for feed visibility.
+- Hashtag policy: 2-3 max, targeted to topic — no generic tags like #innovation.
+- Link handling: put links in the first comment when possible to avoid reach penalty.
 
 ## Examples
 
