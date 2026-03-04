@@ -353,7 +353,6 @@ pal = Agent(
     # Context
     search_past_sessions=True,
     num_past_sessions_to_search=5,
-    num_past_session_runs_in_search=10,
     add_datetime_to_context=True,
     add_history_to_context=True,
     read_chat_history=True,

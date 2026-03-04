@@ -134,6 +134,8 @@ pal = Agent(
     ),
     tools=tools,
     enable_agentic_memory=True,
+    search_past_sessions=True,
+    num_past_sessions_to_search=5,
     ...
 )
 ```
@@ -442,6 +444,8 @@ agent = Agent(tools=[my_custom_tool], ...)
 | `search_knowledge` | bool | Auto-search knowledge base |
 | `learning` | LearningMachine | Learning configuration |
 | `enable_agentic_memory` | bool | Track user preferences |
+| `search_past_sessions` | bool | Search previous sessions for relevant context |
+| `num_past_sessions_to_search` | int | Number of past sessions to search (default 5) |
 | `add_datetime_to_context` | bool | Include current time |
 | `add_history_to_context` | bool | Include chat history |
 | `read_chat_history` | bool | Load previous messages |
