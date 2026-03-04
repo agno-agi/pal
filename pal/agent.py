@@ -25,7 +25,7 @@ from agno.tools.file import FileTools
 from agno.tools.mcp import MCPTools
 from agno.tools.sql import SQLTools
 
-from db import create_knowledge, db_url, get_postgres_db
+from db import PAL_SCHEMA, create_knowledge, get_postgres_db, get_sql_engine
 from pal.paths import CONTEXT_DIR
 from pal.tools import create_update_knowledge
 
@@ -44,9 +44,7 @@ GOOGLE_CLIENT_ID = getenv("GOOGLE_CLIENT_ID", "")
 GOOGLE_CLIENT_SECRET = getenv("GOOGLE_CLIENT_SECRET", "")
 GOOGLE_PROJECT_ID = getenv("GOOGLE_PROJECT_ID", "")
 PAL_CONTEXT_DIR = Path(getenv("PAL_CONTEXT_DIR", str(CONTEXT_DIR)))
-GOOGLE_INTEGRATION_ENABLED = bool(
-    GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET and GOOGLE_PROJECT_ID
-)
+GOOGLE_INTEGRATION_ENABLED = bool(GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET and GOOGLE_PROJECT_ID)
 
 # Dual knowledge system
 pal_knowledge = create_knowledge("Pal Knowledge", "pal_knowledge")
@@ -215,9 +213,11 @@ GMAIL_INSTRUCTIONS = """
 Search, read, and draft emails. Sending is excluded at the code level.
 
 Before drafting: check `pal_people` for the recipient, read voice guides in
-`context/voice/`, check recent threads. When the user says "send" → create a
-draft: "Draft created in Gmail. Review and send when ready." Summarize threads
-rather than dumping raw messages.\
+`context/voice/`, check recent threads. For any `email_draft` intent — including
+"send", "draft", "reply", "write an email" — always create a Gmail draft via
+`create_draft_email`: "Draft created in Gmail. Review and send when ready."
+Never just render email text inline. Summarize threads rather than dumping raw
+messages.\
 """
 
 CALENDAR_INSTRUCTIONS = """
@@ -269,7 +269,7 @@ else:
 # Tools — built dynamically based on configured capabilities
 # ---------------------------------------------------------------------------
 tools: list = [
-    SQLTools(db_url=db_url, schema="pal"),
+    SQLTools(db_engine=get_sql_engine(), schema=PAL_SCHEMA),
     FileTools(base_dir=PAL_CONTEXT_DIR, enable_delete_file=False),
     update_knowledge,
     MCPTools(url=EXA_MCP_URL),
@@ -296,7 +296,8 @@ pal = Agent(
     search_knowledge=True,
     learning=LearningMachine(
         knowledge=pal_learnings,
-        learned_knowledge=LearnedKnowledgeConfig(mode=LearningMode.AGENTIC),
+        namespace="user",
+        learned_knowledge=LearnedKnowledgeConfig(mode=LearningMode.AGENTIC, namespace="user"),
     ),
     # Tools
     tools=tools,

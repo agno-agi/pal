@@ -43,20 +43,18 @@ User-facing files that Pal reads on demand from `PAL_CONTEXT_DIR` (default `./co
 
 ```
 context/
+├── about-me.md             # User background and goals
+├── preferences.md          # Working-style config
 ├── voice/                  # Writing tone templates (placeholder format)
 │   ├── email.md
 │   ├── linkedin-post.md
 │   ├── x-post.md
 │   ├── slack-message.md
 │   └── document.md
-├── preferences/            # User working-style preferences
-│   └── general.md
-├── templates/              # Document templates for Pal to fill
-│   ├── meeting-notes.md
-│   ├── weekly-review.md
-│   └── project-brief.md
-└── references/             # Static reference context
-    └── about-me.md
+└── templates/              # Document templates for Pal to fill
+    ├── meeting-notes.md
+    ├── weekly-review.md
+    └── project-brief.md
 ```
 
 `context/load_context.py` indexes these files into `pal_knowledge` with intent tags (e.g. `voice-guide`, `user-preferences`, `template`) — metadata only, not content. The agent reads file content on demand via FileTools.
