@@ -27,6 +27,8 @@ services:
     volumes:
       # Hot-reload: mount source code
       - .:/app
+      # User files
+      - ${PAL_CONTEXT_DIR:-./context}:/app/context
     environment:
       - RUNTIME_ENV=dev
       - AGNO_DEBUG=True
@@ -41,7 +43,16 @@ services:
       - PRINT_ENV_ON_LOAD=True
       # API keys
       - OPENAI_API_KEY=${OPENAI_API_KEY}
-      - EXA_API_KEY=${EXA_API_KEY}
+      - EXA_API_KEY=${EXA_API_KEY:-}
+      # Google OAuth
+      - GOOGLE_CLIENT_ID=${GOOGLE_CLIENT_ID:-}
+      - GOOGLE_CLIENT_SECRET=${GOOGLE_CLIENT_SECRET:-}
+      - GOOGLE_PROJECT_ID=${GOOGLE_PROJECT_ID:-}
+      # Slack
+      - SLACK_TOKEN=${SLACK_TOKEN:-}
+      - SLACK_SIGNING_SECRET=${SLACK_SIGNING_SECRET:-}
+      # Files
+      - PAL_CONTEXT_DIR=/app/context
     depends_on:
       - pal-db
     networks:

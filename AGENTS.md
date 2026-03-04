@@ -1,35 +1,70 @@
-# CLAUDE.md
+# AGENTS.md
 
-This file provides context for Claude Code when working with this repository.
+This file provides context for coding agents when working with this repository.
 
 ## Project Overview
 
-Pal - A personal agent that learns your preferences, context, and history. Built with Agno.
+Pal - A personal context-agent that learns how you work. Built with Agno.
 
 ## Architecture
 
 ```
-AgentOS (app/main.py)
-└── Pal (pal/agent.py)  # Personal agent with SQL + Exa MCP + LearningMachine
+AgentOS Entrypoint (app/main.py)
+├── Pal (pal/agent.py)   # Context agent with 7 toolkits + dynamic instructions
+├── Slack Interface       # Receives Slack messages (optional, requires SLACK_TOKEN + SLACK_SIGNING_SECRET)
+└── Scheduler             # Polls Postgres for due schedules
 ```
 
 Pal uses:
 - PostgreSQL database (pgvector) for persistence
 - OpenAI GPT-5.2 model
-- SQLTools for dynamic schema creation and queries
-- Exa MCP for web research
-- Dual knowledge system: `pal_knowledge` (RAG) + `pal_learnings` (LearningMachine)
+- 4 always-on toolkits: SQLTools, FileTools, MCPTools (Exa), custom `update_knowledge`
+- 3 conditional toolkits:
+  - SlackTools (requires `SLACK_TOKEN`): proactive posting to Slack channels (e.g. `#pal-updates`)
+  - GmailTools (requires all 3 Google env vars): email search, read, draft
+  - GoogleCalendarTools (requires all 3 Google env vars): calendar read/write
+- Dual knowledge system: `pal_knowledge` (metadata index) + `pal_learnings` (LearningMachine)
+- Dynamic instructions: base + Exa (always) + Slack block + Google blocks (each enabled/disabled with fallback)
+- Scheduler enabled for recurring tasks (scheduled tasks post results to Slack via SlackTools)
 
 ## Key Files
 
 | File | Purpose |
 |------|---------|
-| `app/main.py` | AgentOS entry point, registers Pal agent |
+| `app/main.py` | AgentOS entry point — registers Pal agent, optional Slack interface, scheduler enabled |
 | `app/config.yaml` | Quick prompts for Pal |
-| `pal/agent.py` | Pal agent implementation |
+| `pal/agent.py` | Pal agent — dynamic instructions, conditional tools, config |
+| `pal/tools.py` | Custom `update_knowledge` tool (closure over Knowledge instance) |
+| `pal/paths.py` | Shared path constants (`CONTEXT_DIR`) |
 | `db/session.py` | `get_postgres_db()` and `create_knowledge()` helpers |
 | `db/url.py` | Builds database URL from environment |
+| `context/load_context.py` | Upserts context file metadata into `pal_knowledge` (intent tags, not content); supports `--dry-run` |
+| `tasks/` | Recurring schedule scripts — each registers a cron job via `ScheduleManager` that hits `/agents/pal/runs` |
 | `compose.yaml` | Local development with Docker |
+
+## Context Directory
+
+User-facing files that Pal reads on demand from `PAL_CONTEXT_DIR` (default `./context`).
+
+```
+context/
+├── about-me.md             # User background, goals, active projects
+├── preferences.md          # Working-style config, file conventions, scheduled tasks
+├── voice/                  # Writing tone templates (placeholder format)
+│   ├── email.md
+│   ├── linkedin-post.md
+│   ├── x-post.md
+│   ├── slack-message.md
+│   └── document.md
+├── templates/              # Document templates for Pal to fill
+│   ├── meeting-notes.md
+│   ├── weekly-review.md
+│   └── project-brief.md
+├── meetings/               # Saved meeting notes and weekly reviews
+└── projects/               # Project briefs and docs
+```
+
+`context/load_context.py` indexes these files into `pal_knowledge` with intent tags (e.g. `voice-guide`, `user-preferences`, `template`) — metadata only, not content. The agent reads file content on demand via FileTools.
 
 ## Development Setup
 
@@ -55,20 +90,35 @@ source .venv/bin/activate && ./scripts/validate.sh
 
 ### Agent Pattern
 
-Pal follows the self-named package pattern (`pal/agent.py`):
+Pal follows the self-named package pattern (`pal/agent.py`) with dynamic instructions and conditional tools:
 
 ```python
-from agno.agent import Agent
-from agno.learn import LearnedKnowledgeConfig, LearningMachine, LearningMode
-from agno.models.openai import OpenAIResponses
-from agno.tools.mcp import MCPTools
-from agno.tools.sql import SQLTools
-from db import create_knowledge, db_url, get_postgres_db
+# Instructions — Exa always included, Slack + Google conditional with disabled fallback
+instructions = BASE_INSTRUCTIONS
+instructions += EXA_INSTRUCTIONS  # Always added (Exa tool is always loaded)
+if SLACK_TOKEN:
+    instructions += SLACK_INSTRUCTIONS
+else:
+    instructions += SLACK_DISABLED_INSTRUCTIONS
+if GOOGLE_INTEGRATION_ENABLED:
+    instructions += GMAIL_INSTRUCTIONS
+    instructions += CALENDAR_INSTRUCTIONS
+else:
+    instructions += GMAIL_DISABLED_INSTRUCTIONS      # Tells agent to suggest setup
+    instructions += CALENDAR_DISABLED_INSTRUCTIONS    # Tells agent to suggest setup
 
-agent_db = get_postgres_db(contents_table="pal_contents")
-
-pal_knowledge = create_knowledge("Pal Knowledge", "pal_knowledge")
-pal_learnings = create_knowledge("Pal Learnings", "pal_learnings")
+# Tools — 4 always-on, 3 conditional
+tools: list = [
+    SQLTools(db_url=db_url),
+    FileTools(base_dir=PAL_CONTEXT_DIR, enable_delete_file=False),
+    update_knowledge,  # Custom tool from pal/tools.py
+    MCPTools(url=EXA_MCP_URL),  # Always loaded; EXA_API_KEY controls auth in URL
+]
+if SLACK_TOKEN:
+    tools.append(SlackTools(enable_send_message=True, enable_list_channels=True, ...))
+if GOOGLE_INTEGRATION_ENABLED:
+    tools.append(GmailTools(exclude_tools=["send_email", "send_email_reply"]))
+    tools.append(GoogleCalendarTools(allow_update=True))
 
 pal = Agent(
     id="pal",
@@ -82,31 +132,29 @@ pal = Agent(
         knowledge=pal_learnings,
         learned_knowledge=LearnedKnowledgeConfig(mode=LearningMode.AGENTIC),
     ),
-    tools=[
-        SQLTools(db_url=db_url),
-        MCPTools(url=EXA_MCP_URL),
-    ],
+    tools=tools,
     enable_agentic_memory=True,
-    add_datetime_to_context=True,
-    add_history_to_context=True,
-    read_chat_history=True,
-    num_history_runs=10,
-    markdown=True,
+    ...
 )
 ```
 
 ### Database
 
-- Use `get_postgres_db()` from `db` module
-- **Important**: The `contents_table` parameter is only needed when the database is provided to a Knowledge base as a `contents_db`. If your agent doesn't use a Knowledge base, just use `get_postgres_db()` without arguments.
+- Use `get_postgres_db()` from `db` module — no args needed for agent/session storage
+- `contents_table` is only needed when the db backs a knowledge base (pass it to store document contents alongside vectors)
+- `create_knowledge()` handles this automatically — creates a contents table named `{table_name}_contents`
 
 ```python
-# Agent WITH a Knowledge base - use create_knowledge helper
-from db import create_knowledge
-knowledge = create_knowledge("My Knowledge", "my_vectors")
+from db import create_knowledge, get_postgres_db
 
-# Agent WITHOUT a Knowledge base - no contents_table needed
+# Agent db — stores session data, no contents_table needed
 agent_db = get_postgres_db()
+
+# Knowledge base — creates vector table + auto-named contents table
+# create_knowledge("Pal Knowledge", "pal_knowledge")
+#   → vector table: pal_knowledge
+#   → contents table: pal_knowledge_contents
+knowledge = create_knowledge("My Knowledge", "my_vectors")
 ```
 
 - Knowledge bases use PgVector with `SearchType.hybrid`
@@ -135,22 +183,55 @@ docker compose up -d --build
 # Test Pal agent directly
 python -m pal.agent
 
+# Load context templates and files into knowledge
+python context/load_context.py
+
 # Format & validation (run from activated venv)
 ./scripts/format.sh
 ./scripts/validate.sh
+
+# Register/update recurring schedules (run any script to create or update its schedule)
+python -m tasks.daily_briefing
+python -m tasks.weekly_review
+python -m tasks.inbox_digest
+python -m tasks.context_refresh
+python -m tasks.learning_summary
 ```
+
+## Scheduler / Recurring Tasks
+
+The scheduler is enabled in `app/main.py` (`scheduler=True`). It polls the database for due schedules and calls the configured endpoints.
+
+`scheduler_base_url` is set to `http://127.0.0.1:8000` in dev (matching PORT) or read from `AGENTOS_URL` in prod. Without this, the scheduler defaults to port 7777 and tasks silently fail.
+
+Scripts in `tasks/` register schedules via `ScheduleManager`. Each is idempotent (`if_exists="update"`) — safe to re-run after editing prompts.
+
+| Script | Schedule | Cron |
+|--------|----------|------|
+| `tasks/daily_briefing.py` | 8 AM weekdays | `0 8 * * 1-5` |
+| `tasks/weekly_review.py` | 5 PM Friday | `0 17 * * 5` |
+| `tasks/inbox_digest.py` | 12 PM weekdays | `0 12 * * 1-5` |
+| `tasks/context_refresh.py` | 8 AM daily | `0 8 * * *` |
+| `tasks/learning_summary.py` | 10 AM Monday | `0 10 * * 1` |
+
+All times are `America/New_York`. Schedules hit `/agents/pal/runs` with a crafted prompt.
 
 ## Environment Variables
 
 Required:
 - `OPENAI_API_KEY`
-- `EXA_API_KEY` - Exa MCP for web search
 
-Optional:
+Optional (capabilities added when configured):
+- `EXA_API_KEY` - Adds auth to Exa MCP URL (tool loads regardless, key enables full access)
+- `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `GOOGLE_PROJECT_ID` - Gmail + Calendar (all 3 required)
+- `SLACK_TOKEN` - Slack bot interface + SlackTools (proactive channel posting)
+- `SLACK_SIGNING_SECRET` - Slack bot interface (event verification)
+- `PAL_CONTEXT_DIR` - Base directory for FileTools (default: `./context`)
 - `DB_DRIVER` - Database driver (default: `postgresql+psycopg`)
 - `PORT` - API server port (default: `8000`)
 - `DB_HOST`, `DB_PORT`, `DB_USER`, `DB_PASS`, `DB_DATABASE`
-- `RUNTIME_ENV` - Set to `dev` for auto-reload
+- `RUNTIME_ENV` - Set to `dev` for auto-reload and local scheduler base URL
+- `AGENTOS_URL` - Scheduler callback URL in production (e.g., `https://pal.example.com`)
 
 ## Ports
 
@@ -161,10 +242,11 @@ Optional:
 
 | Data | Storage | Table/Location |
 |------|---------|----------------|
-| Pal knowledge (RAG) | PostgreSQL (vector embeddings) | `pal_knowledge` |
-| Pal learnings (LearningMachine) | PostgreSQL (vector embeddings) | `pal_learnings` |
-| Pal contents | PostgreSQL | `pal_contents` |
-| User data (notes, people, etc.) | PostgreSQL (SQL) | `pal_*` tables (dynamic) |
+| Pal knowledge (metadata index) | PostgreSQL (vector embeddings) | `pal_knowledge` + `pal_knowledge_contents` |
+| Pal learnings (LearningMachine) | PostgreSQL (vector embeddings) | `pal_learnings` + `pal_learnings_contents` |
+| Pal agent contents | PostgreSQL | `pal_contents` |
+| User data (notes, people, etc.) | PostgreSQL (SQL) | `pal_*` tables (dynamic, agent-created) |
+| User files & documents | Local filesystem | `PAL_CONTEXT_DIR` (default `./context`) |
 | Sessions/memory | PostgreSQL | Automatic |
 
 ---

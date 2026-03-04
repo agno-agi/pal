@@ -1,24 +1,37 @@
 # Pal
 
-A personal agent that learns your preferences, context, and history. Built with [Agno](https://docs.agno.com).
+A personal context-agent that learns how you work.
 
-Pal creates SQL tables on demand, remembers everything you tell it, and gets better over time using LearningMachine. It connects notes, people, bookmarks, and anything else you want to track.
+Pal navigates a heterogeneous graph of sources — SQL, Local Files, Gmail, Google Calendar, and Web Search to complete tasks and improve retrieval quality over time. Built with [Agno](https://docs.agno.com).
 
-## What's Included
+## How It Works
 
-| Agent | Pattern | Description |
-|-------|---------|-------------|
-| Pal | SQL + Exa MCP + LearningMachine | Personal knowledge system that dynamically creates schemas, searches the web, and learns your preferences. |
+Every interaction follows the same loop:
 
-## Get Started
+1. **Classify** intent from the user request.
+2. **Recall** from knowledge, learnings, and files — scoped to intent.
+3. **Retrieve** from the right sources.
+4. **Act** through tool calls.
+5. **Learn** so the next request is better.
+
+Pal uses per-source summarization before synthesis, which means broad queries ("What do I know about Project X?") scale as context grows — each source is summarized independently, then synthesized into a final answer.
+
+## Quick Start
 
 ```sh
 # Clone the repo
+git clone https://github.com/agno-agi/pal
+cd pal
+
+# Add OPENAI_API_KEY
 cp example.env .env
-# Edit .env and add your OPENAI_API_KEY and EXA_API_KEY
+# Edit .env and add your key
 
 # Start the application
 docker compose up -d --build
+
+# Load context file metadata into the knowledge map
+docker compose exec pal-api python context/load_context.py
 ```
 
 Confirm Pal is running at [http://localhost:8000/docs](http://localhost:8000/docs).
@@ -29,147 +42,164 @@ Confirm Pal is running at [http://localhost:8000/docs](http://localhost:8000/doc
 2. Add OS → Local → `http://localhost:8000`
 3. Click "Connect"
 
-**Try it:**
+## Context Directory
+
+The context directory (`PAL_CONTEXT_DIR`, default `./context`) is Pal's primary document store. Files are searched and read on demand — not centrally embedded — so edits are immediately reflected without reindexing.
+
+**User → Pal**: Place voice guidelines, preferences, templates, and references here. Pal reads them to shape its behavior.
+
+**Pal → User**: Pal writes summaries, exports, and generated documents back here.
 
 ```
-Save a note: Met with Sarah Chen from Acme Corp
+context/
+├── about-me.md             # User background, goals, active projects
+├── preferences.md          # Working-style config, file conventions, scheduled tasks
+├── voice/                  # Writing tone guides per channel
+│   ├── email.md
+│   ├── linkedin-post.md
+│   ├── x-post.md
+│   ├── slack-message.md
+│   └── document.md
+├── templates/              # Document scaffolds Pal fills per use
+│   ├── meeting-notes.md
+│   ├── weekly-review.md
+│   └── project-brief.md
+├── meetings/               # Saved meeting notes and weekly reviews
+└── projects/               # Project briefs and docs
+```
+
+File deletion is disabled at the code level.
+
+### Context Loading
+
+Preload file metadata into the knowledge map for retrieval routing from inside the container:
+
+```sh
+docker compose exec pal-api python context/load_context.py
+docker compose exec pal-api python context/load_context.py --recreate   # clear knowledge index and reload
+docker compose exec pal-api python context/load_context.py --dry-run    # preview without writing
+```
+
+This writes compact `File:` metadata entries (intent tags, size, path) into `pal_knowledge`. File contents are still read on demand by FileTools.
+
+## Architecture
+
+```
+AgentOS (app/main.py)  [scheduler=True, tracing=True]
+ ├── FastAPI / Uvicorn
+ ├── Slack Interface (optional)
+ └── Pal Agent (pal/agent.py)
+     ├─ Model: GPT-5.2
+     ├─ SQLTools         → PostgreSQL (pal_* tables)
+     ├─ FileTools        → context/
+     ├─ MCPTools         → Exa web search
+     ├─ update_knowledge → custom tool (pal/tools.py)
+     ├─ SlackTools       → Post to Slack channels (requires SLACK_TOKEN)
+     ├─ GmailTools       → Gmail (requires Google credentials)
+     └─ CalendarTools    → Google Calendar (requires Google credentials)
+
+     Knowledge:  pal_knowledge  (metadata map — where things are)
+     Learnings:  pal_learnings  (retrieval patterns — how to navigate)
+```
+
+### Sources
+
+| Source | Purpose | Availability |
+|--------|---------|--------------|
+| SQL (`pal_*`) | Structured notes, people, projects, decisions | Always |
+| Files (`context/`) | Voice guides, templates, preferences, references, exports | Always |
+| Exa | Web research | Always (API key optional for auth) |
+| Slack | Post messages to channels (e.g. scheduled task results to `#pal-updates`) | Requires `SLACK_TOKEN` |
+| Gmail | Thread search, reading, draft creation | Requires all 3 Google credentials |
+| Calendar | Event lookup, creation, updates | Requires all 3 Google credentials |
+
+### Storage
+
+| Layer | What goes there |
+|-------|----------------|
+| PostgreSQL | `pal_*` user tables, `pal_knowledge` + `pal_knowledge_contents`, `pal_learnings` + `pal_learnings_contents`, `pal_contents` |
+| `context/` | Voice guides, preferences, templates, references, generated exports |
+
+## Capabilities
+
+Pal starts with SQL + Files + Exa and enables more as environment variables are added. When a capability isn't configured, Pal returns a specific fallback message telling the user which env vars to add — no unsupported tool calls are attempted.
+
+### Exa Web Research
+
+Available by default. Optionally add an API key for authenticated access:
+
+```env
+EXA_API_KEY=your-exa-key
+```
+
+### Gmail + Google Calendar
+
+All three variables are required to enable Google integration:
+
+```env
+GOOGLE_CLIENT_ID=your-google-client-id
+GOOGLE_CLIENT_SECRET=your-google-client-secret
+GOOGLE_PROJECT_ID=your-google-project-id
+```
+
+Gmail is configured as draft-only — send tools are excluded at the code level. Calendar events with external attendees require user confirmation before creation.
+
+### Slack
+
+Slack integration has two layers:
+
+- **Slack Interface** (`app/main.py`): Receives messages from Slack and routes them to Pal. Thread timestamps map to session IDs for separate conversation contexts.
+- **Slack Tools** (`pal/agent.py`): Gives Pal the ability to proactively post messages to Slack channels. Scheduled tasks (daily briefing, inbox digest, etc.) post their results to `#pal-updates`.
+
+Both require the same token:
+
+```env
+SLACK_TOKEN=xoxb-your-bot-token
+SLACK_SIGNING_SECRET=your-signing-secret
+```
+
+## Example Prompts
+
+```
+Save a note: Met with Sarah Chen from Acme Corp. She's interested in a partnership.
 What do I know about Sarah?
-Create a projects table and track my current projects
-```
-
-## Deploy to Railway
-
-Requires:
-- [Railway CLI](https://docs.railway.com/guides/cli)
-- `OPENAI_API_KEY` set in your environment
-
-```sh
-railway login
-
-./scripts/railway_up.sh
-```
-
-The script provisions PostgreSQL, configures environment variables, and deploys your application.
-
-### Connect to the Web UI
-
-1. Open [os.agno.com](https://os.agno.com)
-2. Click "Add OS" → "Live"
-3. Enter your Railway domain
-
-### Manage deployment
-
-```sh
-railway logs --service pal      # View logs
-railway open                    # Open dashboard
-railway up --service pal -d     # Update after changes
-```
-
-To stop services:
-```sh
-railway down --service pal
-railway down --service pgvector
-```
-
-## How Pal Works
-
-**SQL Database** — Pal's structured storage for your data. Notes, bookmarks, people, projects, decisions — tables are created on demand with a `pal_` prefix. Uses `SQLTools` against the shared PostgreSQL database.
-
-**LearningMachine** — Meta-knowledge about you and the database. Preferences, patterns, schemas created, query patterns that work. Stored in a separate vector knowledge base (`pal_learnings`).
-
-**Exa MCP** — Web research via the Exa search API. Pal can look things up and optionally save findings to the database.
-
-## Project Structure
-
-```
-├── pal/
-│   └── agent.py              # Pal agent implementation
-├── app/
-│   ├── main.py               # AgentOS entry point
-│   └── config.yaml           # Quick prompts config
-├── db/
-│   ├── session.py            # PostgreSQL database helpers
-│   └── url.py                # Connection URL builder
-├── scripts/                  # Helper scripts
-├── compose.yaml              # Docker Compose config
-├── Dockerfile
-└── pyproject.toml            # Dependencies
-```
-
-## Common Tasks
-
-### Add tools to Pal
-
-Agno includes 100+ tool integrations. See the [full list](https://docs.agno.com/tools/toolkits).
-
-```python
-from agno.tools.slack import SlackTools
-
-pal = Agent(
-    ...
-    tools=[
-        SQLTools(db_url=db_url),
-        MCPTools(url=EXA_MCP_URL),
-        SlackTools(),
-    ],
-)
-```
-
-### Add dependencies
-
-1. Edit `pyproject.toml`
-2. Regenerate requirements: `./scripts/generate_requirements.sh`
-3. Rebuild: `docker compose up -d --build`
-
-### Use a different model provider
-
-1. Add your API key to `.env` (e.g., `ANTHROPIC_API_KEY`)
-2. Update `pal/agent.py` to use the new provider:
-
-```python
-from agno.models.anthropic import Claude
-
-model=Claude(id="claude-sonnet-4-5")
-```
-3. Add dependency: `anthropic` in `pyproject.toml`
-
----
-
-## Local Development
-
-For development without Docker:
-
-```sh
-# Install uv
-curl -LsSf https://astral.sh/uv/install.sh | sh
-
-# Setup environment
-./scripts/venv_setup.sh
-source .venv/bin/activate
-
-# Start PostgreSQL (required)
-docker compose up -d pal-db
-
-# Run the app
-python -m app.main
+Check my latest emails
+What's on my calendar this week?
+Draft an X post in my voice about AI productivity
+Save a summary of today's meeting to meeting-notes.md
+What do I know about Project X?
+Research web trends on AI productivity
 ```
 
 ## Environment Variables
 
-| Variable | Required | Default | Description |
-|----------|----------|---------|-------------|
-| `OPENAI_API_KEY` | Yes | - | OpenAI API key |
-| `EXA_API_KEY` | No | - | Exa API key for web research |
-| `PORT` | No | `8000` | API server port |
-| `DB_HOST` | No | `localhost` | Database host |
-| `DB_PORT` | No | `5432` | Database port |
-| `DB_USER` | No | `ai` | Database user |
-| `DB_PASS` | No | `ai` | Database password |
-| `DB_DATABASE` | No | `ai` | Database name |
-| `RUNTIME_ENV` | No | `prd` | Set to `dev` for auto-reload |
+| Variable | Required | Default | Purpose |
+|----------|----------|---------|---------|
+| `OPENAI_API_KEY` | Yes | — | GPT-5.2 |
+| `EXA_API_KEY` | No | `""` | Exa web search auth (tool loads regardless) |
+| `GOOGLE_CLIENT_ID` | No | `""` | Gmail + Calendar OAuth (all 3 required) |
+| `GOOGLE_CLIENT_SECRET` | No | `""` | Gmail + Calendar OAuth (all 3 required) |
+| `GOOGLE_PROJECT_ID` | No | `""` | Gmail + Calendar OAuth (all 3 required) |
+| `PAL_CONTEXT_DIR` | No | `./context` | Context directory path |
+| `SLACK_TOKEN` | No | `""` | Slack bot token (interface + tools) |
+| `SLACK_SIGNING_SECRET` | No | `""` | Slack signing secret (interface only) |
+| `DB_HOST` | No | `localhost` | PostgreSQL host |
+| `DB_PORT` | No | `5432` | PostgreSQL port |
+| `DB_USER` | No | `ai` | PostgreSQL user |
+| `DB_PASS` | No | `ai` | PostgreSQL password |
+| `DB_DATABASE` | No | `ai` | PostgreSQL database |
+| `PORT` | No | `8000` | API port |
+| `RUNTIME_ENV` | No | `prd` | `dev` enables hot reload |
 
-## Learn More
+## Troubleshooting
 
-- [Agno Documentation](https://docs.agno.com)
-- [AgentOS Documentation](https://docs.agno.com/agent-os/introduction)
-- [Agno Discord](https://agno.com/discord)
+**Context prompts stop making sense**: Rerun `python context/load_context.py` to refresh the knowledge map.
+
+**Docker config issues**: Run `docker compose config` and verify optional vars have fallback defaults.
+
+**PAL_CONTEXT_DIR not found**: Ensure the directory is mounted to `./context` in your compose file.
+
+## Links
+
+- [Agno Docs](https://docs.agno.com)
+- [AgentOS Docs](https://docs.agno.com/agent-os/introduction)

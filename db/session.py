@@ -9,10 +9,27 @@ from agno.db.postgres import PostgresDb
 from agno.knowledge import Knowledge
 from agno.knowledge.embedder.openai import OpenAIEmbedder
 from agno.vectordb.pgvector import PgVector, SearchType
+from sqlalchemy import Engine, create_engine, text
 
 from db.url import db_url
 
 DB_ID = "pal-db"
+
+# PostgreSQL schema for user data tables (pal_notes, pal_people, etc.)
+# Agno framework tables (sessions, knowledge vectors) stay in the default "ai" schema
+PAL_SCHEMA = "pal"
+
+
+def get_sql_engine() -> Engine:
+    bootstrap = create_engine(db_url)
+    with bootstrap.connect() as conn:
+        conn.execute(text(f"CREATE SCHEMA IF NOT EXISTS {PAL_SCHEMA}"))
+        conn.commit()
+    bootstrap.dispose()
+    return create_engine(
+        db_url,
+        connect_args={"options": f"-c search_path={PAL_SCHEMA},public"},
+    )
 
 
 def get_postgres_db(contents_table: str | None = None) -> PostgresDb:

@@ -7,16 +7,16 @@ license-files = ["LICENSE"]
 authors = [{ name = "Agno", email = "hello@agno.com" }]
 
 dependencies = [
-  "agno",
+  "agno[os]",
   "fastapi[standard]",
   "openai",
   "pgvector",
   "psycopg[binary]",
-  "sqlalchemy",
   "mcp",
-  "opentelemetry-api",
-  "opentelemetry-sdk",
-  "openinference-instrumentation-agno",
+  "google-auth",
+  "google-auth-oauthlib",
+  "google-api-python-client",
+  "slack-sdk",
 ]
 
 [project.optional-dependencies]
@@ -44,7 +44,7 @@ plugins = ["pydantic.mypy"]
 exclude = [".venv*"]
 
 [[tool.mypy.overrides]]
-module = ["pgvector.*", "setuptools.*", "agno.*", "httpx.*", "mcp.*"]
+module = ["pgvector.*", "setuptools.*", "agno.*", "httpx.*", "mcp.*", "google.*", "googleapiclient.*", "slack_sdk.*"]
 ignore_missing_imports = true
 
 [tool.uv.pip]
