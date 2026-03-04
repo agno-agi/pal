@@ -98,7 +98,8 @@ def clear_knowledge_index() -> None:
     """
     print("WARNING: Clearing entire pal_knowledge index (row-level delete not supported).")
     print("         Schema:, Discovery:, and Source: entries will be rebuilt during use.")
-    pal_knowledge.vector_db.delete()
+    if pal_knowledge.vector_db is not None:
+        pal_knowledge.vector_db.delete()
 
 
 def load_context(*, recreate: bool = False, dry_run: bool = False) -> int:
