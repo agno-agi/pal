@@ -24,9 +24,24 @@
 
 - Meeting notes path: `context/meetings/`
 - Meeting notes filename: `YYYY-MM-DD - meeting - topic.md`
+- Weekly review path: `context/meetings/`
+- Weekly review filename: `YYYY-MM-DD - weekly-review.md`
 - Project docs path: `context/projects/`
 - Project doc filename: `project - <name>.md`
-- Exports path: `context/exports/`
+
+## Scheduled tasks
+
+Pal runs these automatically — no prompting required:
+
+| Task | Schedule | What it does |
+|------|----------|-------------|
+| Daily briefing | 8 AM weekdays | Calendar, emails, priorities |
+| Inbox digest | 12 PM weekdays | Morning email summary, flag responses |
+| Weekly review | 5 PM Friday | Fill weekly-review template, save to meetings/ |
+| Context refresh | 8 AM daily | Re-index context files via update_knowledge |
+| Learning summary | 10 AM Monday | Summarize patterns from pal_learnings |
+
+If a scheduled task produces a file, follow the file conventions above.
 
 ## Governance
 

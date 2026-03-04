@@ -52,18 +52,20 @@ The context directory (`PAL_CONTEXT_DIR`, default `./context`) is Pal's primary 
 
 ```
 context/
-├── about-me.md             # User background and goals
-├── preferences.md          # Working-style config
+├── about-me.md             # User background, goals, active projects
+├── preferences.md          # Working-style config, file conventions, scheduled tasks
 ├── voice/                  # Writing tone guides per channel
 │   ├── email.md
 │   ├── linkedin-post.md
 │   ├── x-post.md
 │   ├── slack-message.md
 │   └── document.md
-└── templates/              # Document scaffolds Pal fills per use
-    ├── meeting-notes.md
-    ├── weekly-review.md
-    └── project-brief.md
+├── templates/              # Document scaffolds Pal fills per use
+│   ├── meeting-notes.md
+│   ├── weekly-review.md
+│   └── project-brief.md
+├── meetings/               # Saved meeting notes and weekly reviews
+└── projects/               # Project briefs and docs
 ```
 
 File deletion is disabled at the code level.

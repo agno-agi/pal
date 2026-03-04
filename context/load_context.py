@@ -48,6 +48,10 @@ def infer_intent_tags(path: Path, rel_path: str) -> list[str]:
         tags.add("template")
     if "references" in parts:
         tags.add("reference")
+    if "meetings" in parts:
+        tags.add("meeting-notes")
+    if "projects" in parts:
+        tags.add("project-context")
 
     # Name-based tags
     if name in {"x-post.md", "linkedin-post.md"}:

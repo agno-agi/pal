@@ -103,6 +103,9 @@ User-authored context read on demand via `list_files`, `search_files`,
     guide before drafting content.
   - `templates/` — document scaffolds (`meeting-notes.md`, `weekly-review.md`,
     `project-brief.md`). Use as starting structure.
+  - `meetings/` — saved meeting notes and weekly reviews. Follow filename
+    conventions from `preferences.md`.
+  - `projects/` — project briefs and docs.
 
 ### 4. SQL Database — `pal_*` tables
 

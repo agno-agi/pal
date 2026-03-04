@@ -35,6 +35,7 @@ Pal uses:
 | `db/session.py` | `get_postgres_db()` and `create_knowledge()` helpers |
 | `db/url.py` | Builds database URL from environment |
 | `context/load_context.py` | Upserts context file metadata into `pal_knowledge` (intent tags, not content); supports `--dry-run` |
+| `tasks/` | Recurring schedule scripts — each registers a cron job via `ScheduleManager` that hits `/agents/pal/runs` |
 | `compose.yaml` | Local development with Docker |
 
 ## Context Directory
@@ -43,18 +44,20 @@ User-facing files that Pal reads on demand from `PAL_CONTEXT_DIR` (default `./co
 
 ```
 context/
-├── about-me.md             # User background and goals
-├── preferences.md          # Working-style config
+├── about-me.md             # User background, goals, active projects
+├── preferences.md          # Working-style config, file conventions, scheduled tasks
 ├── voice/                  # Writing tone templates (placeholder format)
 │   ├── email.md
 │   ├── linkedin-post.md
 │   ├── x-post.md
 │   ├── slack-message.md
 │   └── document.md
-└── templates/              # Document templates for Pal to fill
-    ├── meeting-notes.md
-    ├── weekly-review.md
-    └── project-brief.md
+├── templates/              # Document templates for Pal to fill
+│   ├── meeting-notes.md
+│   ├── weekly-review.md
+│   └── project-brief.md
+├── meetings/               # Saved meeting notes and weekly reviews
+└── projects/               # Project briefs and docs
 ```
 
 `context/load_context.py` indexes these files into `pal_knowledge` with intent tags (e.g. `voice-guide`, `user-preferences`, `template`) — metadata only, not content. The agent reads file content on demand via FileTools.
@@ -129,24 +132,21 @@ pal = Agent(
 
 ### Database
 
-- Use `get_postgres_db()` from `db` module
-- `contents_table` maps to `knowledge_table` in `PostgresDb` — pass it when the db stores knowledge contents or agent contents
-- `create_knowledge()` auto-creates a contents table named `{table_name}_contents`
+- Use `get_postgres_db()` from `db` module — no args needed for agent/session storage
+- `contents_table` is only needed when the db backs a knowledge base (pass it to store document contents alongside vectors)
+- `create_knowledge()` handles this automatically — creates a contents table named `{table_name}_contents`
 
 ```python
 from db import create_knowledge, get_postgres_db
 
-# Agent db — stores agent session/contents data
-agent_db = get_postgres_db(contents_table="pal_contents")
+# Agent db — stores session data, no contents_table needed
+agent_db = get_postgres_db()
 
 # Knowledge base — creates vector table + auto-named contents table
 # create_knowledge("Pal Knowledge", "pal_knowledge")
 #   → vector table: pal_knowledge
 #   → contents table: pal_knowledge_contents
 knowledge = create_knowledge("My Knowledge", "my_vectors")
-
-# Plain db (no knowledge/contents) — e.g. for AgentOS
-db = get_postgres_db()
 ```
 
 - Knowledge bases use PgVector with `SearchType.hybrid`
@@ -181,7 +181,32 @@ python context/load_context.py
 # Format & validation (run from activated venv)
 ./scripts/format.sh
 ./scripts/validate.sh
+
+# Register/update recurring schedules (run any script to create or update its schedule)
+python -m tasks.daily_briefing
+python -m tasks.weekly_review
+python -m tasks.inbox_digest
+python -m tasks.context_refresh
+python -m tasks.learning_summary
 ```
+
+## Scheduler / Recurring Tasks
+
+The scheduler is enabled in `app/main.py` (`scheduler=True`). It polls the database for due schedules and calls the configured endpoints.
+
+`scheduler_base_url` is set to `http://127.0.0.1:8000` in dev (matching PORT) or read from `AGENTOS_URL` in prod. Without this, the scheduler defaults to port 7777 and tasks silently fail.
+
+Scripts in `tasks/` register schedules via `ScheduleManager`. Each is idempotent (`if_exists="update"`) — safe to re-run after editing prompts.
+
+| Script | Schedule | Cron |
+|--------|----------|------|
+| `tasks/daily_briefing.py` | 8 AM weekdays | `0 8 * * 1-5` |
+| `tasks/weekly_review.py` | 5 PM Friday | `0 17 * * 5` |
+| `tasks/inbox_digest.py` | 12 PM weekdays | `0 12 * * 1-5` |
+| `tasks/context_refresh.py` | 8 AM daily | `0 8 * * *` |
+| `tasks/learning_summary.py` | 10 AM Monday | `0 10 * * 1` |
+
+All times are `America/New_York`. Schedules hit `/agents/pal/runs` with a crafted prompt.
 
 ## Environment Variables
 
@@ -196,7 +221,8 @@ Optional (capabilities added when configured):
 - `DB_DRIVER` - Database driver (default: `postgresql+psycopg`)
 - `PORT` - API server port (default: `8000`)
 - `DB_HOST`, `DB_PORT`, `DB_USER`, `DB_PASS`, `DB_DATABASE`
-- `RUNTIME_ENV` - Set to `dev` for auto-reload
+- `RUNTIME_ENV` - Set to `dev` for auto-reload and local scheduler base URL
+- `AGENTOS_URL` - Scheduler callback URL in production (e.g., `https://pal.example.com`)
 
 ## Ports
 

@@ -16,5 +16,11 @@ Python, TypeScript, PostgreSQL, Docker, Git, GitHub, VS Code
 
 ## Current Goals
 
-- Ship Pal v1 and use it daily
-- Build a reliable personal context system
+- Build and refine Pal as a daily-use personal agent
+- Write about context agents — what works, what doesn't, what's next
+- Automate recurring workflows so Pal handles the routine stuff
+
+## Active Projects
+
+- **Pal** — personal context-agent (active, primary focus)
+- **Blog series** — context agents, building in public (active)
