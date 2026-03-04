@@ -19,7 +19,8 @@ schedule = mgr.create(
             "Midday inbox digest:\n"
             "1. Summarize emails from this morning — group by sender or thread.\n"
             "2. Flag anything that needs a response today.\n"
-            "3. Note any action items with owners and deadlines."
+            "3. Note any action items with owners and deadlines.\n\n"
+            "When done, post the digest to the #pal-updates Slack channel."
         ),
     },
     timezone="America/New_York",

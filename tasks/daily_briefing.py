@@ -20,7 +20,8 @@ schedule = mgr.create(
             "1. Check today's calendar — list events with times, flag any that need prep.\n"
             "2. Summarize unread or flagged emails (if Gmail is enabled).\n"
             "3. List my open priorities and action items from recent conversations.\n"
-            "Keep it short — a morning scan, not a full report."
+            "Keep it short — a morning scan, not a full report.\n\n"
+            "When done, post the briefing to the #pal-updates Slack channel."
         ),
     },
     timezone="America/New_York",

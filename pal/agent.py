@@ -23,6 +23,7 @@ from agno.learn import (
 from agno.models.openai import OpenAIResponses
 from agno.tools.file import FileTools
 from agno.tools.mcp import MCPTools
+from agno.tools.slack import SlackTools
 from agno.tools.sql import SQLTools
 
 from db import PAL_SCHEMA, create_knowledge, get_postgres_db, get_sql_engine
@@ -40,6 +41,7 @@ if EXA_API_KEY:
     EXA_MCP_URL = f"https://mcp.exa.ai/mcp?exaApiKey={EXA_API_KEY}&tools=web_search_exa"
 else:
     EXA_MCP_URL = "https://mcp.exa.ai/mcp?tools=web_search_exa"
+SLACK_TOKEN = getenv("SLACK_TOKEN", "")
 GOOGLE_CLIENT_ID = getenv("GOOGLE_CLIENT_ID", "")
 GOOGLE_CLIENT_SECRET = getenv("GOOGLE_CLIENT_SECRET", "")
 GOOGLE_PROJECT_ID = getenv("GOOGLE_PROJECT_ID", "")
@@ -235,6 +237,33 @@ Check availability with `find_available_slots`. Cross-reference attendees with
 `pal_people`. Present schedules grouped by day.\
 """
 
+SLACK_INSTRUCTIONS = """
+
+## Slack
+
+You can send messages to Slack channels proactively using `send_message`.
+
+**When to post to Slack:**
+- Scheduled task results (daily briefing, inbox digest, weekly review, learning summary)
+- Any time the user asks you to share something on Slack
+
+**Rules:**
+- Use `list_channels` first if you don't know the channel name/ID.
+- Keep messages concise and well-formatted for Slack (use mrkdwn).
+- Read `context/voice/slack-message.md` before composing messages.
+- Do not post to channels unless a scheduled task or user request says to.\
+"""
+
+SLACK_DISABLED_INSTRUCTIONS = """
+
+## Slack — Not Configured
+
+If Slack posting is needed, respond exactly:
+> I can't post to Slack yet. Add `SLACK_TOKEN` and restart.
+
+Do not attempt any Slack tool calls.\
+"""
+
 GMAIL_DISABLED_INSTRUCTIONS = """
 
 ## Email — Not Configured
@@ -261,6 +290,10 @@ Do not attempt any calendar-related tool calls.\
 # Assemble instructions
 instructions = BASE_INSTRUCTIONS
 instructions += EXA_INSTRUCTIONS
+if SLACK_TOKEN:
+    instructions += SLACK_INSTRUCTIONS
+else:
+    instructions += SLACK_DISABLED_INSTRUCTIONS
 if GOOGLE_INTEGRATION_ENABLED:
     instructions += GMAIL_INSTRUCTIONS
     instructions += CALENDAR_INSTRUCTIONS
@@ -277,6 +310,18 @@ tools: list = [
     update_knowledge,
     MCPTools(url=EXA_MCP_URL),
 ]
+
+if SLACK_TOKEN:
+    tools.append(
+        SlackTools(
+            enable_send_message=True,
+            enable_list_channels=True,
+            enable_send_message_thread=False,
+            enable_get_channel_history=False,
+            enable_upload_file=False,
+            enable_download_file=False,
+        )
+    )
 
 if GOOGLE_INTEGRATION_ENABLED:
     from agno.tools.gmail import GmailTools

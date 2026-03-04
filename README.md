@@ -87,12 +87,14 @@ This writes compact `File:` metadata entries (intent tags, size, path) into `pal
 ```
 AgentOS (app/main.py)  [scheduler=True, tracing=True]
  ├── FastAPI / Uvicorn
+ ├── Slack Interface (optional)
  └── Pal Agent (pal/agent.py)
      ├─ Model: GPT-5.2
      ├─ SQLTools         → PostgreSQL (pal_* tables)
      ├─ FileTools        → context/
      ├─ MCPTools         → Exa web search
      ├─ update_knowledge → custom tool (pal/tools.py)
+     ├─ SlackTools       → Post to Slack channels (requires SLACK_TOKEN)
      ├─ GmailTools       → Gmail (requires Google credentials)
      └─ CalendarTools    → Google Calendar (requires Google credentials)
 
@@ -141,9 +143,14 @@ GOOGLE_PROJECT_ID=your-google-project-id
 
 Gmail is configured as draft-only — send tools are excluded at the code level. Calendar events with external attendees require user confirmation before creation.
 
-### Slack Interface
+### Slack
 
-Slack is an AgentOS-level interface, not a toolkit on the agent. It's configured in `app/main.py` and thread timestamps map to session IDs for separate conversation contexts.
+Slack integration has two layers:
+
+- **Slack Interface** (`app/main.py`): Receives messages from Slack and routes them to Pal. Thread timestamps map to session IDs for separate conversation contexts.
+- **Slack Tools** (`pal/agent.py`): Gives Pal the ability to proactively post messages to Slack channels. Scheduled tasks (daily briefing, inbox digest, etc.) post their results to `#pal-updates`.
+
+Both require the same token:
 
 ```env
 SLACK_TOKEN=xoxb-your-bot-token
@@ -173,8 +180,8 @@ Research web trends on AI productivity
 | `GOOGLE_CLIENT_SECRET` | No | `""` | Gmail + Calendar OAuth (all 3 required) |
 | `GOOGLE_PROJECT_ID` | No | `""` | Gmail + Calendar OAuth (all 3 required) |
 | `PAL_CONTEXT_DIR` | No | `./context` | Context directory path |
-| `SLACK_TOKEN` | No | `""` | Slack bot token |
-| `SLACK_SIGNING_SECRET` | No | `""` | Slack signing secret |
+| `SLACK_TOKEN` | No | `""` | Slack bot token (interface + tools) |
+| `SLACK_SIGNING_SECRET` | No | `""` | Slack signing secret (interface only) |
 | `DB_HOST` | No | `localhost` | PostgreSQL host |
 | `DB_PORT` | No | `5432` | PostgreSQL port |
 | `DB_USER` | No | `ai` | PostgreSQL user |

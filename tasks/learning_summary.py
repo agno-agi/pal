@@ -19,7 +19,8 @@ schedule = mgr.create(
             "Monday learning check-in:\n"
             "1. Query what you've learned about me recently from pal_learnings.\n"
             "2. Summarize patterns, preferences, and insights you've picked up.\n"
-            "3. Note anything that seems wrong or worth revisiting."
+            "3. Note anything that seems wrong or worth revisiting.\n\n"
+            "When done, post the summary to the #pal-updates Slack channel."
         ),
     },
     timezone="America/New_York",

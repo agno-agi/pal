@@ -43,6 +43,12 @@ Pal runs these automatically — no prompting required:
 
 If a scheduled task produces a file, follow the file conventions above.
 
+## Slack channels
+
+| Channel | Purpose |
+|---------|---------|
+| #pal-updates | All scheduled task posts (briefings, digests, reviews, summaries) |
+
 ## Governance
 
 - Always confirm before: creating events with external attendees, drafting external emails

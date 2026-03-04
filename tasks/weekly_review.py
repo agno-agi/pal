@@ -20,7 +20,8 @@ schedule = mgr.create(
             "1. Read context/templates/weekly-review.md for the structure.\n"
             "2. Fill it in based on this week's conversations, decisions, and action items.\n"
             "3. Save the draft to context/meetings/ using the filename format "
-            "YYYY-MM-DD - weekly-review.md (use today's date)."
+            "YYYY-MM-DD - weekly-review.md (use today's date).\n\n"
+            "When done, post a summary of the weekly review to the #pal-updates Slack channel."
         ),
     },
     timezone="America/New_York",
