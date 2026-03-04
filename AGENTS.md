@@ -10,18 +10,22 @@ Pal - A personal context-agent that learns how you work. Built with Agno.
 
 ```
 AgentOS Entrypoint (app/main.py)
-├── Pal (pal/agent.py)   # Context agent with 6 toolkits + dynamic instructions
-└── Slack (optional)     # Slack interface
+├── Pal (pal/agent.py)   # Context agent with 7 toolkits + dynamic instructions
+├── Slack Interface       # Receives Slack messages (optional, requires SLACK_TOKEN + SLACK_SIGNING_SECRET)
+└── Scheduler             # Polls Postgres for due schedules
 ```
 
 Pal uses:
 - PostgreSQL database (pgvector) for persistence
 - OpenAI GPT-5.2 model
 - 4 always-on toolkits: SQLTools, FileTools, MCPTools (Exa), custom `update_knowledge`
-- 2 conditional toolkits (require all 3 Google env vars): GmailTools, GoogleCalendarTools
+- 3 conditional toolkits:
+  - SlackTools (requires `SLACK_TOKEN`): proactive posting to Slack channels (e.g. `#pal-updates`)
+  - GmailTools (requires all 3 Google env vars): email search, read, draft
+  - GoogleCalendarTools (requires all 3 Google env vars): calendar read/write
 - Dual knowledge system: `pal_knowledge` (metadata index) + `pal_learnings` (LearningMachine)
-- Dynamic instructions: base + Exa (always) + Google blocks (enabled/disabled fallback)
-- Scheduler enabled for recurring tasks
+- Dynamic instructions: base + Exa (always) + Slack block + Google blocks (each enabled/disabled with fallback)
+- Scheduler enabled for recurring tasks (scheduled tasks post results to Slack via SlackTools)
 
 ## Key Files
 
@@ -89,11 +93,13 @@ source .venv/bin/activate && ./scripts/validate.sh
 Pal follows the self-named package pattern (`pal/agent.py`) with dynamic instructions and conditional tools:
 
 ```python
-# Instructions — Exa always included, Google conditional with disabled fallback
+# Instructions — Exa always included, Slack + Google conditional with disabled fallback
 instructions = BASE_INSTRUCTIONS
 instructions += EXA_INSTRUCTIONS  # Always added (Exa tool is always loaded)
-
-GOOGLE_INTEGRATION_ENABLED = bool(GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET and GOOGLE_PROJECT_ID)
+if SLACK_TOKEN:
+    instructions += SLACK_INSTRUCTIONS
+else:
+    instructions += SLACK_DISABLED_INSTRUCTIONS
 if GOOGLE_INTEGRATION_ENABLED:
     instructions += GMAIL_INSTRUCTIONS
     instructions += CALENDAR_INSTRUCTIONS
@@ -101,13 +107,15 @@ else:
     instructions += GMAIL_DISABLED_INSTRUCTIONS      # Tells agent to suggest setup
     instructions += CALENDAR_DISABLED_INSTRUCTIONS    # Tells agent to suggest setup
 
-# Tools — 4 always-on, 2 conditional
+# Tools — 4 always-on, 3 conditional
 tools: list = [
     SQLTools(db_url=db_url),
     FileTools(base_dir=PAL_CONTEXT_DIR, enable_delete_file=False),
     update_knowledge,  # Custom tool from pal/tools.py
     MCPTools(url=EXA_MCP_URL),  # Always loaded; EXA_API_KEY controls auth in URL
 ]
+if SLACK_TOKEN:
+    tools.append(SlackTools(enable_send_message=True, enable_list_channels=True, ...))
 if GOOGLE_INTEGRATION_ENABLED:
     tools.append(GmailTools(exclude_tools=["send_email", "send_email_reply"]))
     tools.append(GoogleCalendarTools(allow_update=True))
@@ -216,7 +224,8 @@ Required:
 Optional (capabilities added when configured):
 - `EXA_API_KEY` - Adds auth to Exa MCP URL (tool loads regardless, key enables full access)
 - `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `GOOGLE_PROJECT_ID` - Gmail + Calendar (all 3 required)
-- `SLACK_TOKEN`, `SLACK_SIGNING_SECRET` - Slack bot interface
+- `SLACK_TOKEN` - Slack bot interface + SlackTools (proactive channel posting)
+- `SLACK_SIGNING_SECRET` - Slack bot interface (event verification)
 - `PAL_CONTEXT_DIR` - Base directory for FileTools (default: `./context`)
 - `DB_DRIVER` - Database driver (default: `postgresql+psycopg`)
 - `PORT` - API server port (default: `8000`)

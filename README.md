@@ -109,6 +109,7 @@ AgentOS (app/main.py)  [scheduler=True, tracing=True]
 | SQL (`pal_*`) | Structured notes, people, projects, decisions | Always |
 | Files (`context/`) | Voice guides, templates, preferences, references, exports | Always |
 | Exa | Web research | Always (API key optional for auth) |
+| Slack | Post messages to channels (e.g. scheduled task results to `#pal-updates`) | Requires `SLACK_TOKEN` |
 | Gmail | Thread search, reading, draft creation | Requires all 3 Google credentials |
 | Calendar | Event lookup, creation, updates | Requires all 3 Google credentials |
 
