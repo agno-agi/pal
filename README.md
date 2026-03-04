@@ -142,6 +142,14 @@ GOOGLE_CLIENT_SECRET=your-google-client-secret
 GOOGLE_PROJECT_ID=your-google-project-id
 ```
 
+Then generate `token.json` by running the OAuth script on the host:
+
+```sh
+python scripts/google_auth.py
+```
+
+This opens a browser for Google consent and saves the token. The script uses `prompt='consent'` to ensure a refresh token is always returned, even on re-authorization.
+
 Gmail is configured as draft-only — send tools are excluded at the code level. Calendar events with external attendees require user confirmation before creation.
 
 ### Slack

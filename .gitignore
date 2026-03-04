@@ -60,6 +60,8 @@ Thumbs.db
 # Project-specific
 # =========================
 tmp
+token.json
+compose.override.yaml
 
 # Optional: local PyPI creds (uncomment if you ever create it)
 # .pypirc
