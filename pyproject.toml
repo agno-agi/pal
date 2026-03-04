@@ -17,6 +17,7 @@ dependencies = [
   "google-auth-oauthlib",
   "google-api-python-client",
   "slack-sdk",
+  "aiohttp",
 ]
 
 [project.optional-dependencies]
