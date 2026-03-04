@@ -10,7 +10,7 @@
 from os import getenv
 from pathlib import Path
 
-from google_auth_oauthlib.flow import InstalledAppFlow
+from google_auth_oauthlib.flow import InstalledAppFlow  # type: ignore[import-untyped]
 
 SCOPES = [
     "https://www.googleapis.com/auth/gmail.readonly",
