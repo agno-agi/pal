@@ -35,14 +35,14 @@ def infer_intent_tags(path: Path, rel_path: str) -> list[str]:
     Keep them broad — the agent reads the actual file when it needs detail.
     """
     name = path.name.lower()
-    stem = path.stem.lower()
-    parts = {p.lower() for p in rel_path.split("/")}
+    # Strip extensions so "preferences.md" and "preferences/" both match "preferences"
+    parts = {Path(p).stem.lower() for p in rel_path.split("/")}
     tags: set[str] = set()
 
-    # Location-based tags (check both dir components and file stem for flat files)
+    # Location-based tags
     if "voice" in parts:
         tags.update(["voice-guide", "content-generation"])
-    if "preferences" in parts or stem == "preferences":
+    if "preferences" in parts:
         tags.add("user-preferences")
     if "templates" in parts:
         tags.add("template")
