@@ -2,7 +2,7 @@
 
 A personal context-agent that learns how you work.
 
-Pal navigates a heterogeneous graph of sources — SQL, local files, Gmail, Google Calendar, and web search — to complete tasks and improve retrieval quality over time. Built with [Agno](https://docs.agno.com).
+Pal navigates a heterogeneous graph of sources — SQL, Local Files, Gmail, Google Calendar, and Web Search to complete tasks and improve retrieval quality over time. Built with [Agno](https://docs.agno.com).
 
 ## How It Works
 
@@ -72,12 +72,12 @@ File deletion is disabled at the code level.
 
 ### Context Loading
 
-Preload file metadata into the knowledge map for retrieval routing:
+Preload file metadata into the knowledge map for retrieval routing from inside the container:
 
 ```sh
-python context/load_context.py
-python context/load_context.py --recreate   # clear knowledge index and reload
-python context/load_context.py --dry-run    # preview without writing
+docker compose exec pal-api python context/load_context.py
+docker compose exec pal-api python context/load_context.py --recreate   # clear knowledge index and reload
+docker compose exec pal-api python context/load_context.py --dry-run    # preview without writing
 ```
 
 This writes compact `File:` metadata entries (intent tags, size, path) into `pal_knowledge`. File contents are still read on demand by FileTools.
