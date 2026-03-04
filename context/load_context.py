@@ -35,8 +35,8 @@ def infer_intent_tags(path: Path, rel_path: str) -> list[str]:
     Keep them broad — the agent reads the actual file when it needs detail.
     """
     name = path.name.lower()
-    # Strip extensions so "preferences.md" and "preferences/" both match "preferences"
-    parts = {Path(p).stem.lower() for p in rel_path.split("/")}
+    # Path.parts handles both / and \ separators; .stem strips extensions
+    parts = {Path(p).stem.lower() for p in Path(rel_path).parts}
     tags: set[str] = set()
 
     # Location-based tags
