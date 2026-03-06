@@ -110,7 +110,7 @@ AgentOS (app/main.py)  [scheduler=True, tracing=True]
 | Files (`context/`) | Voice guides, templates, preferences, references, exports | Always |
 | Exa | Web research | Always (API key optional for auth) |
 | Slack | Post messages to channels (e.g. scheduled task results to `#pal-updates`) | Requires `SLACK_TOKEN` |
-| Gmail | Thread search, reading, draft creation | Requires all 3 Google credentials |
+| Gmail | Search, read, draft, label management | Requires all 3 Google credentials |
 | Calendar | Event lookup, creation, updates | Requires all 3 Google credentials |
 
 ### Storage
@@ -150,7 +150,7 @@ python scripts/google_auth.py
 
 This opens a browser for Google consent and saves the token. The script uses `prompt='consent'` to ensure a refresh token is always returned, even on re-authorization.
 
-Gmail is configured as draft-only — send tools are excluded at the code level. Calendar events with external attendees require user confirmation before creation.
+Gmail is configured as draft-only — send tools are disabled at the code level. Full thread reading, draft lifecycle (create, list, update), and label management are enabled. Calendar events with external attendees require user confirmation before creation.
 
 ### Slack
 

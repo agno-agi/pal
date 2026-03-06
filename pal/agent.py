@@ -324,10 +324,10 @@ if SLACK_TOKEN:
     )
 
 if GOOGLE_INTEGRATION_ENABLED:
-    from agno.tools.gmail import GmailTools
-    from agno.tools.googlecalendar import GoogleCalendarTools
+    from agno.tools.google.calendar import GoogleCalendarTools
+    from agno.tools.google.gmail import GmailTools
 
-    tools.append(GmailTools(exclude_tools=["send_email", "send_email_reply"]))
+    tools.append(GmailTools(send_email=False, send_email_reply=False, list_labels=True))
     tools.append(GoogleCalendarTools(allow_update=True))
 
 # ---------------------------------------------------------------------------
