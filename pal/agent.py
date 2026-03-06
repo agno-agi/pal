@@ -370,4 +370,4 @@ if __name__ == "__main__":
     for idx, prompt in enumerate(test_cases, start=1):
         print(f"\n--- Pal test case {idx}/{len(test_cases)} ---")
         print(f"Prompt: {prompt}")
-        pal.print_response(prompt, stream=True)
+        pal.print_response(prompt, user_id="pal-user", stream=True)
