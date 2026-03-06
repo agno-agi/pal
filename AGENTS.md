@@ -109,7 +109,7 @@ else:
 
 # Tools — 4 always-on, 3 conditional
 tools: list = [
-    SQLTools(db_url=db_url),
+    SQLTools(db_engine=get_sql_engine(), schema=PAL_SCHEMA),
     FileTools(base_dir=PAL_CONTEXT_DIR, enable_delete_file=False),
     update_knowledge,  # Custom tool from pal/tools.py
     MCPTools(url=EXA_MCP_URL),  # Always loaded; EXA_API_KEY controls auth in URL
@@ -130,7 +130,8 @@ pal = Agent(
     search_knowledge=True,
     learning=LearningMachine(
         knowledge=pal_learnings,
-        learned_knowledge=LearnedKnowledgeConfig(mode=LearningMode.AGENTIC),
+        namespace="user",
+        learned_knowledge=LearnedKnowledgeConfig(mode=LearningMode.AGENTIC, namespace="user"),
     ),
     tools=tools,
     enable_agentic_memory=True,
