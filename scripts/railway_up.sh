@@ -78,6 +78,13 @@ railway add --service pal \
     --variables "WAIT_FOR_DB=True" \
     --variables "OPENAI_API_KEY=${OPENAI_API_KEY}" \
     --variables "EXA_API_KEY=${EXA_API_KEY}" \
+    --variables "SLACK_TOKEN=${SLACK_TOKEN}" \
+    --variables "SLACK_SIGNING_SECRET=${SLACK_SIGNING_SECRET}" \
+    --variables "GOOGLE_CLIENT_ID=${GOOGLE_CLIENT_ID}" \
+    --variables "GOOGLE_CLIENT_SECRET=${GOOGLE_CLIENT_SECRET}" \
+    --variables "GOOGLE_PROJECT_ID=${GOOGLE_PROJECT_ID}" \
+    --variables "GOOGLE_SERVICE_ACCOUNT_FILE=${GOOGLE_SERVICE_ACCOUNT_FILE}" \
+    --variables "GOOGLE_DELEGATED_USER=${GOOGLE_DELEGATED_USER}" \
     --variables "PORT=8000"
 
 echo ""

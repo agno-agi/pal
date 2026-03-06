@@ -1,9 +1,5 @@
 from pal.config import GOOGLE_INTEGRATION_ENABLED, PAL_CONTEXT_DIR, SLACK_TOKEN
 
-# {user_id} is a template variable substituted at runtime by Agno, NOT a
-# Python f-string. Use regular strings so {user_id} survives to runtime.
-# If mixing with f-strings, escape as {{user_id}}.
-
 BASE_INSTRUCTIONS = f"""\
 You are Pal, a personal context-agent that learns how the user works.
 You are serving user `{{user_id}}`.
