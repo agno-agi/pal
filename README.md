@@ -134,7 +134,11 @@ EXA_API_KEY=your-exa-key
 
 ### Gmail + Google Calendar
 
-All three variables are required to enable Google integration:
+Pal supports two authentication methods for Google integration.
+
+#### Option 1: OAuth (default — for local development)
+
+Set the three Google env vars:
 
 ```env
 GOOGLE_CLIENT_ID=your-google-client-id
@@ -148,7 +152,32 @@ Then generate `token.json` by running the OAuth script on the host:
 python scripts/google_auth.py
 ```
 
-This opens a browser for Google consent and saves the token. The script uses `prompt='consent'` to ensure a refresh token is always returned, even on re-authorization.
+This opens a browser for Google consent and saves the token. The script uses `prompt='consent'` to ensure a refresh token is always returned, even on re-authorization. Tokens auto-refresh on expiry.
+
+#### Option 2: Service Account (for server/bot deployments)
+
+For headless environments where no browser is available (e.g. production servers, CI), use a Google service account with domain-wide delegation:
+
+1. Create a service account in Google Cloud Console → IAM & Admin → Service Accounts
+2. Download the JSON key file
+3. In Google Workspace Admin Console, go to Security → API Controls → Domain-wide Delegation
+4. Add the service account's client_id with these scopes:
+   - `https://www.googleapis.com/auth/gmail.readonly`
+   - `https://www.googleapis.com/auth/gmail.modify`
+   - `https://www.googleapis.com/auth/gmail.compose`
+   - `https://www.googleapis.com/auth/calendar`
+5. Set environment variables:
+
+```env
+GOOGLE_SERVICE_ACCOUNT_FILE=/path/to/service-account-key.json
+GOOGLE_DELEGATED_USER=user@yourdomain.com
+```
+
+When `GOOGLE_SERVICE_ACCOUNT_FILE` is set, OAuth is skipped entirely. No browser, no `token.json`, no refresh cycle. The `delegated_user` specifies which mailbox and calendar the service account accesses.
+
+#### Auth Behavior
+
+If credentials are missing or invalid when the agent runs, Gmail/Calendar tools fail gracefully — the `@authenticate` decorator catches auth errors and returns them to the agent, which responds with a helpful fallback message. No crash, no unhandled exception.
 
 Gmail is configured as draft-only — send tools are disabled at the code level. Full thread reading, draft lifecycle (create, list, update), and label management are enabled. Calendar events with external attendees require user confirmation before creation.
 
@@ -188,6 +217,8 @@ Research web trends on AI productivity
 | `GOOGLE_CLIENT_ID` | No | `""` | Gmail + Calendar OAuth (all 3 required) |
 | `GOOGLE_CLIENT_SECRET` | No | `""` | Gmail + Calendar OAuth (all 3 required) |
 | `GOOGLE_PROJECT_ID` | No | `""` | Gmail + Calendar OAuth (all 3 required) |
+| `GOOGLE_SERVICE_ACCOUNT_FILE` | No | — | Service account JSON key path (skips OAuth) |
+| `GOOGLE_DELEGATED_USER` | No | — | Mailbox to access via service account |
 | `PAL_CONTEXT_DIR` | No | `./context` | Context directory path |
 | `SLACK_TOKEN` | No | `""` | Slack bot token (interface + tools) |
 | `SLACK_SIGNING_SECRET` | No | `""` | Slack signing secret (interface only) |
