@@ -13,16 +13,10 @@ mgr = ScheduleManager(get_postgres_db())
 schedule = mgr.create(
     name="context-refresh",
     cron="0 8 * * *",
-    endpoint="/agents/pal/runs",
-    payload={
-        "message": (
-            "Use your update_knowledge tool to refresh the context metadata index. "
-            "This re-indexes all files in the context directory so your knowledge base "
-            "stays current."
-        ),
-    },
+    endpoint="/context/reload",
+    payload={},
     timezone="America/New_York",
-    description="Daily context file re-index via update_knowledge tool",
+    description="Daily context file re-index",
     if_exists="update",
 )
 
